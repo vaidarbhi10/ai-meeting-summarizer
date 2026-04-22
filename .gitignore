@@ -1,0 +1,19 @@
+# Python
+venv/
+env/
+__pycache__/
+
+# Node
+node_modules/
+dist/
+
+# ML / AI files
+*.dll
+*.pth
+
+# Outputs
+*.pdf
+uploads/
+
+# OS
+.DS_Store

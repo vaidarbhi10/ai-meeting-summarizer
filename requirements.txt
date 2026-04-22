@@ -1,0 +1,8 @@
+streamlit
+azure-cognitiveservices-speech
+pyannote.audio
+spacy
+keybert
+openai
+pydub
+torch

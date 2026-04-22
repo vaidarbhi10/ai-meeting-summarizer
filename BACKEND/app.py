@@ -1,0 +1,37 @@
+from fastapi import FastAPI, UploadFile, File
+from services.speech_to_text import transcribe_audio
+from services.diarization import diarize_audio
+from services.summarizer import generate_mom
+from services.keyword_extractor import extract_keywords
+from utils.file_handler import save_file
+
+app = FastAPI()
+
+@app.get("/")
+def home():
+    return {"message": "AI Smart Meeting Analyzer Running 🚀"}
+
+@app.post("/analyze")
+async def analyze_audio(file: UploadFile = File(...)):
+
+    file_path = save_file(file)
+
+    # Step 1: Speech-to-Text
+    transcript = transcribe_audio(file_path)
+
+    # Step 2: Speaker Identification
+    speakers = diarize_audio(file_path)
+
+    # Step 3: Keywords
+    keywords = extract_keywords(transcript)
+
+    # Step 4: MoM + Action Items
+    mom, actions = generate_mom(transcript)
+
+    return {
+        "transcript": transcript,
+        "speakers": speakers,
+        "keywords": keywords,
+        "mom": mom,
+        "action_items": actions
+    }
