@@ -1,53 +1,100 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 import whisper
 import os
+import requests
+import uuid
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 
+# ---------------- APP ----------------
 app = FastAPI()
 
-# ---------------- CORS FIX ----------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ---------------- LOAD MODEL ----------------
-model = whisper.load_model("base")
+# ---------------- FAST WHISPER ----------------
+print("Loading Whisper (tiny for speed)...")
+model = whisper.load_model("tiny")
+print("Whisper loaded ✅")
 
 UPLOAD_DIR = "uploads"
+PDF_DIR = "pdfs"
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(PDF_DIR, exist_ok=True)
 
-PDF_FILE = "output.pdf"
+# ---------------- OLLAMA ----------------
+def process_with_ollama(text):
+    try:
+        prompt = f"""
+Summarize this meeting:
 
+1. Summary
+2. Keywords
+3. Action Items
 
-# ---------------- TEXT PROCESSING ----------------
-def simple_summary(text):
-    return text[:300] if text else ""
+Transcript:
+{text[:2000]}
+"""
 
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "llama3.2:3b",
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=180
+        )
 
-def extract_keywords(text):
-    words = text.split()
-    return list(set(words))[:10]
+        print("OLLAMA STATUS:", response.status_code)
+        print("OLLAMA RESPONSE PREVIEW:", response.text[:200])
 
+        if response.status_code != 200:
+            return "Error: Ollama failed"
 
-def extract_actions(text):
-    actions = []
-    sentences = text.split(".")
-    for s in sentences:
-        if "will" in s.lower() or "need" in s.lower() or "do" in s.lower():
-            actions.append(s.strip())
-    return actions
+        data = response.json()
+        return data.get("response", "No response")
 
+    except Exception as e:
+        print("OLLAMA ERROR:", str(e))
+        return "Error generating output"
 
-# ---------------- PDF GENERATION ----------------
-def generate_pdf(data, filename=PDF_FILE):
+# ---------------- PARSER ----------------
+def parse_output(output):
+    summary, keywords, actions = "", "", ""
+
+    try:
+        if "Keywords:" in output:
+            parts = output.split("Keywords:")
+            summary = parts[0].replace("Summary:", "").strip()
+
+            if "Action Items:" in parts[1]:
+                k, a = parts[1].split("Action Items:")
+                keywords = k.strip()
+                actions = a.strip()
+            else:
+                keywords = parts[1].strip()
+        else:
+            summary = output
+
+    except:
+        pass
+
+    return summary, keywords, actions
+
+# ---------------- PDF ----------------
+def generate_pdf(data, file_id):
+    filename = f"{PDF_DIR}/meeting_{file_id}.pdf"
     doc = SimpleDocTemplate(filename)
     styles = getSampleStyleSheet()
 
@@ -55,57 +102,60 @@ def generate_pdf(data, filename=PDF_FILE):
 
     content.append(Paragraph("<b>Transcription:</b>", styles["Heading2"]))
     content.append(Paragraph(data["transcription"], styles["Normal"]))
-    content.append(Spacer(1, 12))
+    content.append(Spacer(1, 10))
 
     content.append(Paragraph("<b>Summary:</b>", styles["Heading2"]))
     content.append(Paragraph(data["summary"], styles["Normal"]))
-    content.append(Spacer(1, 12))
+    content.append(Spacer(1, 10))
 
     content.append(Paragraph("<b>Keywords:</b>", styles["Heading2"]))
-    content.append(Paragraph(", ".join(data["keywords"]), styles["Normal"]))
-    content.append(Spacer(1, 12))
+    content.append(Paragraph(data["keywords"], styles["Normal"]))
+    content.append(Spacer(1, 10))
 
     content.append(Paragraph("<b>Action Items:</b>", styles["Heading2"]))
-    content.append(Paragraph(", ".join(data["action_items"]), styles["Normal"]))
+    content.append(Paragraph(data["action_items"], styles["Normal"]))
 
     doc.build(content)
     return filename
 
-
 # ---------------- ROUTES ----------------
-
 @app.get("/")
 def home():
-    return {"message": "API Running Successfully 🚀"}
+    return {"message": "AI Meeting Summarizer Running 🚀"}
 
-
-# ⚠️ IMPORTANT: THIS MUST MATCH FRONTEND (/upload)
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...)):
     try:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
+        file_id = str(uuid.uuid4())
+        file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
 
-        # Save file
         with open(file_path, "wb") as f:
             f.write(await file.read())
 
-        # Transcription
+        print("AUDIO SAVED")
+
+        # Whisper
         result = model.transcribe(file_path)
         text = result["text"]
 
-        # Process data
+        print("TRANSCRIPTION DONE")
+
+        # Ollama
+        ai_output = process_with_ollama(text)
+
+        summary, keywords, actions = parse_output(ai_output)
+
         data = {
             "transcription": text,
-            "summary": simple_summary(text),
-            "keywords": extract_keywords(text),
-            "action_items": extract_actions(text)
+            "summary": summary,
+            "keywords": keywords,
+            "action_items": actions
         }
 
-        # Generate PDF
-        pdf_path = "output.pdf"
-        generate_pdf(data, pdf_path)
+        pdf_path = generate_pdf(data, file_id)
 
-        # ✅ IMPORTANT FIX: return REAL PDF (not JSON)
+        print("PDF GENERATED")
+
         return FileResponse(
             pdf_path,
             media_type="application/pdf",
@@ -113,13 +163,5 @@ async def upload_audio(file: UploadFile = File(...)):
         )
 
     except Exception as e:
-        return JSONResponse({
-            "error": str(e)
-        })
-@app.get("/download-pdf")
-def download_pdf():
-    return FileResponse(
-        PDF_FILE,
-        media_type="application/pdf",
-        filename="meeting-summary.pdf"
-    )
+        print("UPLOAD ERROR:", str(e))
+        return JSONResponse({"error": str(e)})
