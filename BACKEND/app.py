@@ -1,18 +1,28 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from services.speech_to_text import transcribe_audio
 from services.diarization import diarize_audio
 from services.summarizer import generate_mom
 from services.keyword_extractor import extract_keywords
-from utils.file_handler import save_file
+from file_handler import save_file
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def home():
     return {"message": "AI Smart Meeting Analyzer Running 🚀"}
 
-@app.post("/analyze")
-async def analyze_audio(file: UploadFile = File(...)):
+@app.post("/upload")
+async def upload_and_analyze(file: UploadFile = File(...)):
 
     file_path = save_file(file)
 

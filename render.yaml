@@ -1,0 +1,18 @@
+services:
+  - type: static
+    name: ai-meeting-summarizer-frontend
+    env: static
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+
+  - type: web
+    name: ai-meeting-summarizer-backend
+    env: python
+    branch: main
+    rootDir: BACKEND
+    buildCommand: apt-get update && apt-get install -y ffmpeg && pip install -r requirement.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    autoDeploy: true
