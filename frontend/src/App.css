@@ -1,30 +1,71 @@
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes columnEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .app {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 2rem;
   background: var(--bg);
+  color: var(--text);
+  min-height: auto;
 }
 
 .container {
-  max-width: 600px;
+  max-width: 800px;
   width: 100%;
   background: white;
   border-radius: 16px;
-  padding: 3rem;
+  padding: 2rem;
   box-shadow: var(--shadow-lg);
   text-align: center;
   border: 1px solid var(--border);
+  color: #1a1a1a;
+}
+
+.container p,
+.container h2,
+.container h3,
+.container li,
+.container span {
+  color: #1a1a1a;
 }
 
 .header {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .title {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-h);
   margin: 0 0 0.5rem 0;
@@ -36,13 +77,13 @@
 
 .subtitle {
   font-size: 1.1rem;
-  color: #4a5568;
+  color: #333333;
   margin: 0;
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .upload-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .file-input {
@@ -81,43 +122,39 @@
   border: none;
   padding: 1rem 2.5rem;
   border-radius: 12px;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: var(--shadow);
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .upload-btn:hover:not(:disabled) {
   background: var(--gradient-hover);
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-lg);
+}
+
+.upload-btn:active:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .upload-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
+  animation: pulse 2s infinite;
 }
 
 .loading-section {
-  margin-top: 2rem;
-}
-
-.download-section {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: var(--accent-bg);
-  border-radius: 12px;
-  border: 1px solid var(--accent-border);
+  margin-top: 1.5rem;
 }
 
 .download-link {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   background: var(--success);
   color: white;
   text-decoration: none;
@@ -129,8 +166,12 @@
 
 .download-link:hover {
   background: #218838;
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.05);
   box-shadow: var(--shadow-lg);
+}
+
+.download-link:active {
+  transform: translateY(0) scale(1);
 }
 
 .error-message {
@@ -143,13 +184,65 @@
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  .container {
-    padding: 2rem;
-    margin: 1rem;
-  }
+.results-section {
+  text-align: left;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+}
 
-  .title {
-    font-size: 2rem;
-  }
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.column {
+  background: white;
+  border-radius: 16px;
+  padding: 1.75rem;
+  border: 1px solid rgba(102, 126, 234, 0.12);
+  box-shadow: 0 16px 35px rgba(102, 126, 234, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.column:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 24px 45px rgba(102, 126, 234, 0.12);
+  border-color: rgba(102, 126, 234, 0.25);
+}
+
+.summary-column,
+.keywords-column,
+.action-column {
+  animation: columnEntrance 0.45s ease-out;
+}
+
+.summary-column {
+  border-color: rgba(103, 126, 234, 0.2);
+}
+
+.keywords-column {
+  border-color: rgba(118, 75, 162, 0.2);
+}
+
+.action-column {
+  border-color: rgba(40, 167, 69, 0.2);
+}
+
+.d : Cannot find path 'C:\Users\radhi\Desktop\New folder\AI MEEING\backend' because it does not 
+exist.
+At line:1 char:1
++ cd "AI MEEING\backend"
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\radhi\... MEEING\backend:String) [Set-Locat 
+   ion], ItemNotFoundException
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
+ 
+PS C:\Users\radhi\Desktop\New folder> badge:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }

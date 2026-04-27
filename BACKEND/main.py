@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -156,12 +156,22 @@ async def upload_audio(file: UploadFile = File(...)):
 
         print("PDF GENERATED")
 
-        return FileResponse(
-            pdf_path,
-            media_type="application/pdf",
-            filename="meeting-summary.pdf"
-        )
+        return {
+            "transcription": text,
+            "summary": summary,
+            "keywords": keywords,
+            "action_items": actions,
+            "pdf_download_url": f"/download/{file_id}"
+        }
 
     except Exception as e:
         print("UPLOAD ERROR:", str(e))
         return JSONResponse({"error": str(e)})
+
+
+@app.get("/download/{file_id}")
+def download_pdf(file_id: str):
+    filename = f"{PDF_DIR}/meeting_{file_id}.pdf"
+    if not os.path.exists(filename):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    return FileResponse(filename, media_type="application/pdf", filename="meeting-summary.pdf")
