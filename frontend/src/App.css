@@ -232,17 +232,3 @@
 .action-column {
   border-color: rgba(40, 167, 69, 0.2);
 }
-
-.d : Cannot find path 'C:\Users\radhi\Desktop\New folder\AI MEEING\backend' because it does not 
-exist.
-At line:1 char:1
-+ cd "AI MEEING\backend"
-+ ~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\radhi\... MEEING\backend:String) [Set-Locat 
-   ion], ItemNotFoundException
-    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand
- 
-PS C:\Users\radhi\Desktop\New folder> badge:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
