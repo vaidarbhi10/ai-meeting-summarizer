@@ -1,28 +1,24 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api/api";
-import Loader from "../components/Loader";
+import { toggleDarkMode } from "../utils/theme";
 import "./Upload.css";
 
 function Upload() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
   const navigate = useNavigate();
 
+  // Clean text helper
   const cleanText = (text) => {
     return String(text).replace(/\*+/g, "").trim();
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-    setError("");
-  };
-
   const handleUpload = async () => {
     if (!file) {
-      setError("Please select an audio file first");
+      setError("⚠️ Please select a file first");
       return;
     }
 
@@ -40,86 +36,108 @@ function Upload() {
       });
 
       const data = res.data;
+
       const summary = cleanText(data.summary || "");
-      const cleanedKeywords = Array.isArray(data.keywords)
+
+      const keywords = Array.isArray(data.keywords)
         ? data.keywords.map(cleanText)
-        : String(data.keywords).split(/[\n,]+/).map((item) => cleanText(item)).filter(Boolean);
-      const cleanedActions = Array.isArray(data.action_items)
+        : String(data.keywords || "")
+            .split(/[,]+/)
+            .map((k) => cleanText(k))
+            .filter(Boolean);
+
+      const actionItems = Array.isArray(data.action_items)
         ? data.action_items.map(cleanText)
-        : String(data.action_items).split(/[\n]+/).map((item) => cleanText(item)).filter(Boolean);
-      const speakers = Array.isArray(data.speakers) ? data.speakers : [];
-      const baseUrl = API.defaults.baseURL || "";
-      const downloadUrl = data.pdf_download_url ? `${baseUrl}${data.pdf_download_url}` : "";
+        : String(data.action_items || "")
+            .split(/\n+/)
+            .map((a) => cleanText(a))
+            .filter(Boolean);
+
+      const transcript = data.transcript || "";
+      const downloadUrl = data.pdf_download_url || "";
 
       const resultsData = {
         summary,
-        keywords: cleanedKeywords,
-        actionItems: cleanedActions,
-        speakers,
+        keywords,
+        actionItems,
+        transcript,
         downloadUrl,
       };
 
-      navigate("/results", { state: { results: resultsData } });
+      localStorage.setItem("results", JSON.stringify(resultsData));
+      navigate("/results");
+
     } catch (err) {
       console.error(err);
-
-      if (err.response) {
-        const serverMessage = err.response.data?.error || err.response.data || err.response.statusText;
-        setError(`Upload failed: ${serverMessage}`);
-      } else if (err.request) {
-        setError("Upload failed: no response from backend. Please verify the backend is running.");
-      } else {
-        setError(`Upload failed: ${err.message}`);
-      }
+      setError("❌ Upload failed. Check backend.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="app">
-      <div className="container">
-        <header className="header">
-          <h1 className="title">🎙️ AI Meeting Summarizer</h1>
-          <p className="subtitle">
-            Upload your meeting audio and get an instant summary with keywords and action items
-          </p>
-        </header>
+    <div className="app-center">
+      <div className="main-card">
 
-        <section className="upload-section">
-          <label htmlFor="file-input" className="file-input-label">
-            📁 Choose Audio File
-          </label>
+        {/* HEADER */}
+        <div className="top-bar">
+          <h1 className="title">
+            🎙️ <span>AI Meeting Summarizer</span>
+          </h1>
+
+          <button className="dark-btn" onClick={toggleDarkMode}>
+            🌙
+          </button>
+        </div>
+
+        {/* FILE UPLOAD */}
+        <div className="upload-box">
           <input
-            id="file-input"
             type="file"
             accept="audio/*"
-            onChange={handleFileChange}
-            className="file-input"
+            onChange={(e) => {
+              setFile(e.target.files[0]);
+              setError("");
+            }}
+            hidden
+            id="fileInput"
           />
 
-          {file && (
-            <div className="file-name">Selected: {file.name}</div>
+          {!file ? (
+            <label htmlFor="fileInput" className="upload-label">
+              <div className="icon">📄</div>
+              <h2>Choose File</h2>
+              <p>Click to upload audio</p>
+            </label>
+          ) : (
+            <div className="file-preview">
+              <div className="file-left">
+                <span className="file-icon">🎵</span>
+                <div>
+                  <h3>{file.name}</h3>
+                  <p>File selected</p>
+                </div>
+              </div>
+
+              <label htmlFor="fileInput" className="change-btn">
+                Change
+              </label>
+            </div>
           )}
+        </div>
 
-          <button
-            onClick={handleUpload}
-            className="upload-btn"
-            disabled={loading || !file}
-          >
-            {loading ? "🔄 Processing..." : "🚀 Upload & Analyze Meeting"}
-          </button>
-        </section>
+        {/* BUTTON */}
+        <button
+          className="upload-btn"
+          onClick={handleUpload}
+          disabled={loading}
+        >
+          {loading ? "⏳ Processing..." : "🚀 Upload & Analyze"}
+        </button>
 
-        {loading && (
-          <section className="loading-section">
-            <Loader />
-          </section>
-        )}
+        {/* ERROR */}
+        {error && <p className="error-text">{error}</p>}
 
-        {error && (
-          <div className="error-message">⚠️ {error}</div>
-        )}
       </div>
     </div>
   );

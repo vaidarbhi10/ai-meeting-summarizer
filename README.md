@@ -1,5 +1,9 @@
 # AI Meeting Summarizer
 
+## 🌐 Live Website
+
+[AI Meeting Summarizer](https://frontend-j4ehfm1xt-vaidarbhi-goyal.vercel.app)
+
 This repository contains:
 
 - `frontend/`: React + Vite UI

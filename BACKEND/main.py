@@ -21,10 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- FAST WHISPER ----------------
-print("Loading Whisper (tiny for speed)...")
+print("Loading Whisper...")
 model = whisper.load_model("tiny")
-print("Whisper loaded ✅")
 
 UPLOAD_DIR = "uploads"
 PDF_DIR = "pdfs"
@@ -32,65 +30,94 @@ PDF_DIR = "pdfs"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PDF_DIR, exist_ok=True)
 
+
 # ---------------- OLLAMA ----------------
 def process_with_ollama(text):
-    try:
-        prompt = f"""
-Summarize this meeting:
+    prompt = f"""
+You are a professional AI meeting assistant.
 
-1. Summary
-2. Keywords
-3. Action Items
+STRICT RULES:
+- Do NOT use words like "name", "person"
+- Use real names if present in transcript
+- If no names, use "Speaker 1", "Speaker 2"
+- Keep output structured and clean
+
+FORMAT:
+
+Summary:
+Write 4-5 clear sentences summarizing the meeting.
+
+Keywords:
+- keyword1
+- keyword2
+- keyword3
+
+Action Items:
+- Person: Task
+- Person: Task
 
 Transcript:
-{text[:2000]}
+{text[:3000]}
 """
 
-        response = requests.post(
+    try:
+        res = requests.post(
             "http://localhost:11434/api/generate",
             json={
                 "model": "llama3.2:3b",
                 "prompt": prompt,
                 "stream": False
             },
-            timeout=180
+            timeout=180,
         )
 
-        print("OLLAMA STATUS:", response.status_code)
-        print("OLLAMA RESPONSE PREVIEW:", response.text[:200])
+        if res.status_code != 200:
+            print("OLLAMA ERROR:", res.text)
+            return ""
 
-        if response.status_code != 200:
-            return "Error: Ollama failed"
-
-        data = response.json()
-        return data.get("response", "No response")
+        return res.json().get("response", "")
 
     except Exception as e:
         print("OLLAMA ERROR:", str(e))
-        return "Error generating output"
+        return ""
+
 
 # ---------------- PARSER ----------------
 def parse_output(output):
-    summary, keywords, actions = "", "", ""
+    summary = ""
+    keywords = []
+    actions = []
 
     try:
+        output = output.replace("**", "").strip()
+
+        # SUMMARY
+        if "Summary:" in output:
+            summary = output.split("Summary:")[1].split("Keywords:")[0].strip()
+
+        # KEYWORDS
         if "Keywords:" in output:
-            parts = output.split("Keywords:")
-            summary = parts[0].replace("Summary:", "").strip()
+            k_part = output.split("Keywords:")[1].split("Action Items:")[0]
+            keywords = [
+                k.strip(" -*\n")
+                for k in k_part.split("\n")
+                if k.strip()
+            ]
 
-            if "Action Items:" in parts[1]:
-                k, a = parts[1].split("Action Items:")
-                keywords = k.strip()
-                actions = a.strip()
-            else:
-                keywords = parts[1].strip()
-        else:
-            summary = output
+        # ACTION ITEMS
+        if "Action Items:" in output:
+            a_part = output.split("Action Items:")[1]
+            actions = [
+                a.strip(" -*\n")
+                for a in a_part.split("\n")
+                if a.strip()
+            ]
 
-    except:
-        pass
+    except Exception as e:
+        print("PARSE ERROR:", str(e))
 
     return summary, keywords, actions
+
 
 # ---------------- PDF ----------------
 def generate_pdf(data, file_id):
@@ -100,7 +127,7 @@ def generate_pdf(data, file_id):
 
     content = []
 
-    content.append(Paragraph("<b>Transcription:</b>", styles["Heading2"]))
+    content.append(Paragraph("<b>Transcript:</b>", styles["Heading2"]))
     content.append(Paragraph(data["transcription"], styles["Normal"]))
     content.append(Spacer(1, 10))
 
@@ -109,39 +136,40 @@ def generate_pdf(data, file_id):
     content.append(Spacer(1, 10))
 
     content.append(Paragraph("<b>Keywords:</b>", styles["Heading2"]))
-    content.append(Paragraph(data["keywords"], styles["Normal"]))
+    content.append(Paragraph(", ".join(data["keywords"]), styles["Normal"]))
     content.append(Spacer(1, 10))
 
     content.append(Paragraph("<b>Action Items:</b>", styles["Heading2"]))
-    content.append(Paragraph(data["action_items"], styles["Normal"]))
+
+    if data["action_items"]:
+        for a in data["action_items"]:
+            content.append(Paragraph(f"• {a}", styles["Normal"]))
+    else:
+        content.append(Paragraph("No action items found.", styles["Normal"]))
 
     doc.build(content)
     return filename
 
-# ---------------- ROUTES ----------------
-@app.get("/")
-def home():
-    return {"message": "AI Meeting Summarizer Running 🚀"}
 
+# ---------------- ROUTES ----------------
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...)):
     try:
         file_id = str(uuid.uuid4())
-        file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
+        path = os.path.join(UPLOAD_DIR, f"{file_id}_{file.filename}")
 
-        with open(file_path, "wb") as f:
+        with open(path, "wb") as f:
             f.write(await file.read())
 
-        print("AUDIO SAVED")
+        print("Audio saved")
 
-        # Whisper
-        result = model.transcribe(file_path)
-        text = result["text"]
+        # TRANSCRIPTION
+        text = model.transcribe(path)["text"]
+        print("Transcription done")
 
-        print("TRANSCRIPTION DONE")
-
-        # Ollama
+        # AI PROCESSING
         ai_output = process_with_ollama(text)
+        print("AI OUTPUT:", ai_output[:300])
 
         summary, keywords, actions = parse_output(ai_output)
 
@@ -149,19 +177,18 @@ async def upload_audio(file: UploadFile = File(...)):
             "transcription": text,
             "summary": summary,
             "keywords": keywords,
-            "action_items": actions
+            "action_items": actions,
         }
 
-        pdf_path = generate_pdf(data, file_id)
-
-        print("PDF GENERATED")
+        generate_pdf(data, file_id)
+        print("PDF generated")
 
         return {
-            "transcription": text,
+            "transcript": text,
             "summary": summary,
             "keywords": keywords,
             "action_items": actions,
-            "pdf_download_url": f"/download/{file_id}"
+            "pdf_download_url": f"http://localhost:8000/download/{file_id}",
         }
 
     except Exception as e:
@@ -170,8 +197,14 @@ async def upload_audio(file: UploadFile = File(...)):
 
 
 @app.get("/download/{file_id}")
-def download_pdf(file_id: str):
-    filename = f"{PDF_DIR}/meeting_{file_id}.pdf"
-    if not os.path.exists(filename):
+def download(file_id: str):
+    file = f"{PDF_DIR}/meeting_{file_id}.pdf"
+
+    if not os.path.exists(file):
         raise HTTPException(status_code=404, detail="PDF not found")
-    return FileResponse(filename, media_type="application/pdf", filename="meeting-summary.pdf")
+
+    return FileResponse(
+        file,
+        media_type="application/pdf",
+        filename="meeting-summary.pdf"
+    )

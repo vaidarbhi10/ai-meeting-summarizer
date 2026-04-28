@@ -1,85 +1,106 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "./Results.css";
 
 function Results() {
-  const location = useLocation();
   const navigate = useNavigate();
-  const results = location.state?.results;
+
+  const results = JSON.parse(localStorage.getItem("results") || "null");
 
   if (!results) {
     return (
       <div className="app">
         <div className="container">
-          <div className="no-results">
-            <h2>No results available</h2>
-            <button onClick={() => navigate("/")} className="back-btn">
-              ← Back to Upload
-            </button>
-          </div>
+          <h2>No results available</h2>
+          <button className="back-btn" onClick={() => navigate("/")}>
+            ← Back
+          </button>
         </div>
       </div>
     );
   }
 
-  const { summary, keywords, actionItems, speakers, downloadUrl } = results;
+  let {
+    summary = "",
+    keywords = [],
+    actionItems = [],
+    transcript = "",
+    downloadUrl = "",
+  } = results;
+
+  // ensure arrays
+  if (!Array.isArray(keywords)) {
+    keywords = keywords.split(",").map((k) => k.trim()).filter(Boolean);
+  }
+
+  if (!Array.isArray(actionItems)) {
+    actionItems = actionItems.split("\n").filter(Boolean);
+  }
 
   return (
     <div className="app">
       <div className="container">
-        <header className="header">
-          <h1 className="title">📊 Meeting Analysis Results</h1>
-          <button onClick={() => navigate("/")} className="back-btn">
-            ← Upload Another Meeting
+
+        <div className="header">
+          <h1 className="title">📊 Meeting Results</h1>
+          <button className="back-btn" onClick={() => navigate("/")}>
+            ← Back
           </button>
-        </header>
+        </div>
 
-        <section className="results-section">
-          <div className="columns">
-            <div className="column summary-column">
-              <h2 className="section-title">📋 Meeting Summary</h2>
-              <p className="summary-text">{summary}</p>
-            </div>
+        <div className="results-section">
 
-            <div className="column keywords-column">
-              <h2 className="section-title">🏷️ Keywords</h2>
-              {keywords.length > 0 ? (
-                <div className="badge-list">
-                  {keywords.map((keyword, index) => (
-                    <span key={index} className="badge">
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p>No keywords available.</p>
-              )}
-            </div>
+          {/* TRANSCRIPT */}
+          <div className="column">
+            <h2>📝 Transcript</h2>
+            <p className="text">{transcript}</p>
+          </div>
 
-            <div className="column action-column">
-              <h2 className="section-title">✅ Action Items</h2>
-              {actionItems.length > 0 ? (
-                <ul className="actions-list">
-                  {actionItems.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p>No action items available.</p>
-              )}
-            </div>
+          {/* SUMMARY */}
+          <div className="column">
+            <h2>📋 Summary</h2>
+            <p className="text">{summary}</p>
+          </div>
 
-            <div className="column">
-              <h2 className="section-title">📄 Download</h2>
-              {downloadUrl ? (
-                <a href={downloadUrl} download="meeting-summary.pdf" className="download-link">
-                  📄 Download Meeting Summary PDF
-                </a>
-              ) : (
-                <p>PDF will be available after processing.</p>
-              )}
+          {/* KEYWORDS */}
+          <div className="column">
+            <h2>🏷️ Keywords</h2>
+            <div className="badge-list">
+              {keywords.map((k, i) => (
+                <span key={i} className="badge">
+                  {k}
+                </span>
+              ))}
             </div>
           </div>
-        </section>
+
+          {/* ACTION ITEMS */}
+          <div className="column">
+            <h2>✅ Action Items</h2>
+            <ol className="actions-list">
+              {actionItems.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ol>
+          </div>
+
+          {/* DOWNLOAD */}
+          <div className="column">
+            <h2>📄 Download</h2>
+            {downloadUrl ? (
+              <a
+                href={downloadUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="download-link"
+              >
+                Download PDF
+              </a>
+            ) : (
+              <p>No PDF available</p>
+            )}
+          </div>
+
+        </div>
       </div>
     </div>
   );
